@@ -33,9 +33,9 @@
 #endif
 
 #include "math/algo.h"
-#include "util/endian.h"
 #include "util/exception.h"
-#include "util/string.h"
+#include "util/strings.h"
+#include "util/system.h"
 #include "mve/image_io.h"
 
 /* Loader limits for reading PPM files. */
@@ -97,10 +97,10 @@ load_file (std::string const& filename)
     }
     catch (util::FileException& e)
     {
-        throw util::Exception("Error opening file: ", e.what());
+        throw util::Exception(filename + ": ", e.what());
     }
 
-    throw util::Exception("Cannot determine image format");
+    throw util::Exception(filename, ": Cannot determine image format");
 }
 
 ImageHeaders
@@ -129,10 +129,10 @@ load_file_headers (std::string const& filename)
     }
     catch (util::FileException& e)
     {
-        throw util::Exception("Error opening file: ", e.what());
+        throw util::Exception(filename + ": ", e.what());
     }
 
-    throw util::Exception("Cannot determine image format");
+    throw util::Exception(filename, ": Cannot determine image format");
 }
 
 void
@@ -469,7 +469,7 @@ load_jpg_file (std::string const& filename, std::string* exif)
         }
 
         /* Read JPEG header. */
-        int ret = jpeg_read_header(&cinfo, false);
+        int ret = jpeg_read_header(&cinfo, static_cast<boolean>(false));
         if (ret != JPEG_HEADER_OK)
             throw util::Exception("JPEG header not recognized");
 
@@ -542,7 +542,7 @@ load_jpg_file_headers (std::string const& filename)
         jpeg_stdio_src(&cinfo, fp);
 
         /* Read JPEG header. */
-        int ret = jpeg_read_header(&cinfo, false);
+        int ret = jpeg_read_header(&cinfo, static_cast<boolean>(false));
         if (ret != JPEG_HEADER_OK)
             throw util::Exception("JPEG header not recognized");
 
@@ -582,8 +582,8 @@ save_jpg_file (ByteImage::ConstPtr image, std::string const& filename, int quali
     if (!fp)
         throw util::FileException(filename, std::strerror(errno));
 
-    struct jpeg_compress_struct cinfo;
-    struct jpeg_error_mgr jerr;
+    jpeg_compress_struct cinfo;
+    jpeg_error_mgr jerr;
 
     /* Setup error handler and info object. */
     cinfo.err = jpeg_std_error(&jerr);
@@ -594,17 +594,7 @@ save_jpg_file (ByteImage::ConstPtr image, std::string const& filename, int quali
     cinfo.image_width = image->width();
     cinfo.image_height = image->height();
     cinfo.input_components = image->channels();
-    switch (image->channels())
-    {
-        case 1: cinfo.in_color_space = JCS_GRAYSCALE; break;
-        case 3: cinfo.in_color_space = JCS_RGB; break;
-        default:
-        {
-            jpeg_destroy_compress(&cinfo);
-            std::fclose(fp);
-            throw util::Exception("Invalid image color space");
-        }
-    }
+    cinfo.in_color_space = (image->channels() == 1 ? JCS_GRAYSCALE : JCS_RGB);
 
     /* Set default compression parameters. */
     jpeg_set_defaults(&cinfo);

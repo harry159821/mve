@@ -156,6 +156,17 @@ mkdir (char const* pathname/*, mode_t mode*/)
 /* ---------------------------------------------------------------- */
 
 bool
+rmdir (char const* pathname)
+{
+#ifdef _WIN32
+        return ::_rmdir(pathname) >= 0;
+#else // _WIN32
+        return ::rmdir(pathname) >= 0;
+#endif // _WIN32
+}
+/* ---------------------------------------------------------------- */
+
+bool
 unlink (char const* pathname)
 {
 #ifdef _WIN32
@@ -544,6 +555,8 @@ Directory::scan (std::string const& path)
 #ifdef _WIN32
     WIN32_FIND_DATA data;
     HANDLE hf = FindFirstFile((path + "/*").c_str(), &data);
+    if (hf == INVALID_HANDLE_VALUE)
+        throw Exception("Cannot open directory");
 
     do
     {
